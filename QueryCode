@@ -1,0 +1,157 @@
+
+--SELECT *
+--FROM [covid-vaccinations]
+
+SELECT *
+FROM [covid-vaccinations]
+ORDER BY 3,4
+
+SELECT location, date, total_cases, new_cases, total_deaths, population
+FROM COVIDDEATHS
+ORDER BY 1,2 
+
+--looking at total cases versus total deaths 
+
+--SELECT location, date, total_cases, total_deaths, (total_deaths/total_cases) AS DeathPercentage
+--FROM COVIDDEATHS
+--ORDER BY 1,2 
+
+-- query showing the likelihood of dying if you get covid in a specific location, here we opt for converting the datatype into floats for the calculation
+SELECT location, date, total_cases, total_deaths, (CONVERT(float,total_deaths)/NULLIF(CONVERT(float,total_cases),0))*100 AS DeathPercentage
+FROM COVIDDEATHS
+WHERE location like '%states%'
+ORDER BY 1,2 
+
+-- query showing the likelihood of dying if you get covid in a specific location, no need to convert the numbers as i changed the datatype to numeric in the csv file 
+SELECT location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 AS DeathPercentage
+FROM CovidDeathsNum
+WHERE location like '%states%' 
+ORDER BY 1,2 
+
+
+--Comparing the total cases to the total population
+SELECT location, date, total_cases, population, (total_cases/population)*100 AS PopulationCasesPercentage
+FROM CovidDeathsNum
+WHERE location like '%states%' 
+ORDER BY 1,2 
+
+--Using fetch and offset to see in the middle of the dataset 
+--SELECT location, date, total_cases, population, (total_cases/population)*100 AS PopulationCasesPercentage
+--FROM CovidDeathsNum
+--WHERE location like '%states%'
+--ORDER BY 1,2 DESC
+--OFFSET 200 ROWS 
+--FETCH NEXT 10 ROWS ONLY 
+
+--Looking at countries with highest infection rate compared to population
+SELECT location,population, MAX(total_cases)as HighestInfectionCount,  Max((total_cases/population))*100 AS PopulationCasesPercentage
+FROM CovidDeathsNum
+WHERE continent is not null
+GROUP BY location, population
+ORDER BY PopulationCasesPercentage DESC
+
+
+--Showing the countries with the highest deathrates, we exclude the regional locations so we can see information for countries 
+SELECT location, MAX(total_deaths)as TotalDeathCount
+FROM CovidDeathsNum
+WHERE location NOT IN ('World','High income', 'Upper middle income', 'Europe', 'North America', 'South America', 'Lower middle income', 'European Union','Asia','Africa', 'Low income')
+GROUP BY location
+ORDER BY TotalDeathCount DESC
+
+--Showing how the same thing would look like if we hadnt converted the total deaths column to numeric before importing 
+--here we will use typecasting 
+--Showing the countries with the highest deathrates, we exclude the regional locations so we can see information for countries
+--we can also exclude the regions by finding the rows where the continent is null and removing them 
+SELECT location, MAX(cast(total_deaths as int))as TotalDeathCount
+FROM COVIDDEATHS
+WHERE continent is not null
+GROUP BY location
+ORDER BY TotalDeathCount DESC
+
+--breaking things down by continent 
+SELECT continent, MAX(cast(total_deaths as int))as TotalDeathCount
+FROM COVIDDEATHS
+WHERE continent is not null
+GROUP BY continent
+ORDER BY TotalDeathCount DESC
+
+--other way of breaking things down by continent 
+--SELECT location, MAX(cast(total_deaths as int))as TotalDeathCount
+--FROM COVIDDEATHS
+--WHERE continent is null
+--GROUP BY location
+--ORDER BY TotalDeathCount DESC
+
+--Global overview 
+SELECT date, SUM(new_cases)AS DAILYTOTALNEWCASES, SUM(new_deaths)AS TOTALDAILYNEWDEATHS , (SUM(cast(new_deaths as float))/ NULLIF(SUM(CAST(new_cases as float)),0))*100 AS DeathstoCaseRatio-- total_cases, total_deaths, (total_deaths/total_cases)*100 AS DeathPercentage
+FROM CovidDeathsNum
+WHERE continent is not null
+GROUP BY date 
+ORDER BY 1,2 
+
+
+
+SELECT *
+FROM CovidVaccinationsNum as vacs 
+
+--looking at global vaccinations
+
+SELECT deaths.continent , deaths.location , deaths.date ,vacs.date , deaths.population, vacs.new_vaccinations
+FROM CovidDeathsNum as deaths 
+JOIN CovidVaccinationsNum as vacs 
+on deaths.location = vacs.location 
+AND deaths.date = vacs.date
+--WHERE vacs.new_vaccinations is not null
+
+--looking at the percentage of the global population that is vaccinated 
+SELECT deaths.continent , deaths.location , deaths.date, deaths.population, vacs.new_vaccinations, SUM(CONVERT(decimal, vacs.new_vaccinations)) OVER (Partition by deaths.location Order BY deaths.location,deaths.date) AS TotalVaccinationspercountry
+FROM CovidDeathsNum as deaths 
+JOIN CovidVaccinationsNum as vacs 
+on deaths.location = vacs.location 
+AND deaths.date = vacs.date
+--WHERE vacs.new_vaccinations is not null
+WHERE deaths.continent  is not null 
+order by 2,3 
+
+
+-- Using a CTE to get the return of the above query and do another query 
+WITH  PopulationRations (continent, location, date, population, new_Vaccinations, RollingVaccinatedpop)
+AS
+(
+SELECT deaths.continent , deaths.location , deaths.date, deaths.population, vacs.new_vaccinations, SUM(CONVERT(decimal, vacs.new_vaccinations)) OVER (Partition by deaths.location Order BY deaths.location,deaths.date) AS TotalVaccinationspercountry
+FROM CovidDeathsNum as deaths 
+JOIN CovidVaccinationsNum as vacs 
+on deaths.location = vacs.location 
+AND deaths.date = vacs.date
+--WHERE vacs.new_vaccinations is not null
+WHERE deaths.continent  is not null 
+--order by 2,3 
+)
+SELECT*, (RollingVaccinatedpop/ population)*100 AS PercentPopVaccinated
+FROM PopulationRations
+
+
+--temp table 
+DROP TABLE IF EXISTS #percentpopvaccinated
+Create Table #percentpopvaccinated
+(
+Continent nvarchar(255),
+Location nvarchar(255), 
+Date datetime,
+Population numeric, 
+New_Vaccinations numeric, 
+RollingpeopleVaccinated numeric
+)
+
+
+INSERT INTO #percentpopvaccinated
+(
+SELECT deaths.continent , deaths.location , deaths.date, deaths.population, vacs.new_vaccinations, SUM(CONVERT(decimal, vacs.new_vaccinations)) OVER (Partition by deaths.location Order BY deaths.location,deaths.date) AS TotalVaccinationspercountry
+FROM CovidDeathsNum as deaths 
+JOIN CovidVaccinationsNum as vacs 
+on deaths.location = vacs.location 
+AND deaths.date = vacs.date
+--WHERE vacs.new_vaccinations is not null
+WHERE deaths.continent  is not null 
+--order by 2,3 
+)
