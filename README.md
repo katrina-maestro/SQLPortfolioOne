@@ -15,10 +15,12 @@ Assess vaccination rates and their impact on populations.
 Data Extraction:
 
 Retrieve all records from the covid-vaccinations and COVIDDEATHS tables.
+
 Sorting and Filtering:
 
 Sort data by specific columns to organize the records for better readability and analysis.
 Filter records to focus on particular locations (e.g., countries containing 'states').
+
 Calculating Death Percentages:
 
 Calculate the death percentage for specific locations by converting and dividing total deaths by total cases, handling zero values to avoid division errors.
@@ -30,10 +32,12 @@ Identifying High Infection and Death Rates:
 
 Identify countries with the highest infection rates compared to their population.
 Determine countries and continents with the highest total death counts, excluding non-country locations.
+
 Global Overview and Trend Analysis:
 
 Provide a global overview by aggregating daily new cases and deaths.
 Calculate death-to-case ratios for a comprehensive understanding of global trends.
+
 Vaccination Analysis:
 
 Analyze vaccination data to determine the percentage of the global population vaccinated.
